@@ -8,24 +8,28 @@ import pickle
 import requests
 import time
 
+
+#  Start a driver
 chromedriver = "/Applications/chromedriver"
 os.environ["webdriver.chrome.driver"] = chromedriver
 driver = webdriver.Chrome(chromedriver)
 
 
-def has_no_results(zip_code_page_source):
-    soup = BeautifulSoup(zip_code_page_source, 'html5lib')
-    try:
-        no_results = soup.find_all("h3")[0].text
-        if no_results == 'No matching results...':
-            return 1
-        else:
-            return 0
-    except IndexError:
-        return 0
-
-
+#  Creates a dict where ZIP codes are keys andd raw HTML are values
 def get_pages_html(zip_codes):
+    #  Checks to see if a search result yields 0 results
+    def has_no_results(zip_code_page_source):
+        soup = BeautifulSoup(zip_code_page_source, 'html5lib')
+        try:
+            no_results = soup.find_all("h3")[0].text
+            if no_results == 'No matching results...':
+                return 1
+            else:
+                return 0
+        except IndexError:
+            return 0
+
+    #  Checks to see if a search result yields >1 results
     def is_multiple_pages(zip_code_page_source):
         try:
             stop = zip_code_page_source.find("homes for sale")
@@ -36,13 +40,14 @@ def get_pages_html(zip_codes):
         except NameError:
             return 0
 
-
+    #  In the case a search result has >1 result, generalizes the URLs
     def get_other_page_urls(zip_code, num_pages):
         form = 'https://www.zillow.com/homes/{}_rb/{}_p/'
         page_nums = list(range(2, (num_pages + 1)))
         return [form.format(zip_code, p) for p in page_nums]
 
-
+    #  Pickle dict keeping track of # of search results per ZIP code
+    #  Also, creates .txt file with raw html for each ZIP code
     def save(zip_code):
         zip_coverage_dict[zip_code] = len(zip_dict[zip_code])
         with open("zip_coverage_dict.pickle", "wb") as f:
@@ -74,12 +79,12 @@ def get_pages_html(zip_codes):
             continue
         else:
             search_box = driver.find_element_by_xpath("//input[@id='citystatezip']")
-            time.sleep(np.random.poisson(30))
+            time.sleep(np.random.poisson(22))
             search_box.clear()
             search_box.click()
             search_box.send_keys(zip_code)
             search_button = driver.find_element_by_xpath("//button[@type='submit']")
-            time.sleep(np.random.poisson(20))
+            time.sleep(np.random.poisson(22))
             search_button.click()
             page_source = driver.page_source
             zip_dict[zip_code] = [page_source]
@@ -93,7 +98,7 @@ def get_pages_html(zip_codes):
             elif is_multiple_pages(page_source):
                 other_urls = get_other_page_urls(zip_code, (is_multiple_pages(page_source) + 1))
                 for other_url in other_urls:
-                    time.sleep(np.random.poisson(42))
+                    time.sleep(np.random.poisson(22))
                     zillow_url = other_url
                     driver.get(zillow_url)
                     other_html = driver.page_source
@@ -103,112 +108,15 @@ def get_pages_html(zip_codes):
             else:
                 save(zip_code)
 
-        time.sleep(np.random.poisson(59))
+        time.sleep(np.random.poisson(30))
         driver.execute_script("window.history.go(-1)")
     driver.close()
     return zip_dict
 
 
 
-# starting with SF!
+with open("county_page_source_dict.pickle", "rb") as f:
+    county_page_source_dict = pickle.load(f)
 
-zip_codes = ['94588',
- '94587',
- '94601',
- '94603',
- '94602',
- '94605',
- '94607',
- '94606',
- '94609',
- '94608',
- '94611',
- '94610',
- '94613',
- '94612',
- '94618',
- '94619',
- '94621',
- '94660',
- '94661',
- '94701',
- '94703',
- '94702',
- '94501',
- '94705',
- '94704',
- '94707',
- '94502',
- '94706',
- '94709',
- '94708',
- '94710',
- '94720',
- '94514',
- '94536',
- '94538',
- '94540',
- '94539',
- '94542',
- '94541',
- '94544',
- '94546',
- '94545',
- '94552',
- '94551',
- '94555',
- '94560',
- '94566',
- '94568',
- '94577',
- '95391',
- '94579',
- '94578',
- '94580',
- '94586',
- '94903',
- '94901',
- '94904',
- '94920',
- '94925',
- '94924',
- '94929',
- '94930',
- '94937',
- '94933',
- '94939',
- '94938',
- '94941',
- '94940',
- '94947',
- '94946',
- '94949',
- '94948',
- '94950',
- '94957',
- '94956',
- '94963',
- '94960',
- '94965',
- '94964',
- '94970',
- '94971',
- '94973']
-
-
+zip_codes = county_page_source_dict.values()
 get_pages_html(zip_codes)
-
-
-
-
-
-# EXPERIMENTING!
-#
-# soup = BeautifulSoup(page_source, 'html5lib')
-# [e for e in soup.find_all('h2')][0].text
-#
-#
-# len([e for e in soup.find_all('a', class_='zsg-photo-card-overlay-link')])
-#
-#
-# len([k for k in soup.find_all("div", class_='minibubble template hide')])
